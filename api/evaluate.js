@@ -38,27 +38,43 @@ You MUST respond ONLY in this exact JSON format. No markdown. No preamble. No ex
   "score": <number 2.0-7.5, one decimal place>,
   "scaled_score": <score proportionally scaled to total marks, one decimal>,
   "verdict": "<Poor|Average|Good|Excellent>",
-  "score_reasoning": "<2-3 lines. Brutally specific>",
+  "score_reasoning": "<2-3 lines. Brutally specific — name exactly what earned or lost marks>",
   "dimensions": {
-    "content_quality":  { "score": <0-10>, "note": "<specific feedback>" },
-    "current_affairs":  { "score": <0-10>, "note": "<specific feedback>" },
-    "structure":        { "score": <0-10>, "note": "<specific feedback>" },
-    "analytical_depth": { "score": <0-10>, "note": "<specific feedback>" },
-    "presentation":     { "score": <0-10>, "note": "<specific feedback>" }
+    "content_quality":  { "score": <0-10>, "note": "<specific — what data was present/absent>" },
+    "current_affairs":  { "score": <0-10>, "note": "<specific recent events present/missing>" },
+    "structure":        { "score": <0-10>, "note": "<intro/body/conclusion quality>" },
+    "analytical_depth": { "score": <0-10>, "note": "<multi-dimensional or single-track?>" },
+    "presentation":     { "score": <0-10>, "note": "<tables/flowcharts/diagrams/formatting>" }
   },
-  "mistakes": ["<mistake 1>","<mistake 2>","<mistake 3>"],
-  "improvements": ["<improvement 1>","<improvement 2>","<improvement 3>"],
-  "missing_keywords": ["<kw1>","<kw2>","<kw3>","<kw4>","<kw5>","<kw6>"],
-  "current_affairs_gaps": [
-    { "date": "<Month Year>", "event": "<specific event>" },
-    { "date": "<Month Year>", "event": "<specific event>" },
-    { "date": "<Month Year>", "event": "<specific event>" }
+  "mistakes": [
+    "<Specific mistake 1 — name exactly what was wrong or missing>",
+    "<Specific mistake 2>",
+    "<Specific mistake 3>",
+    "<Specific mistake 4 — only if applicable>",
+    "<Specific mistake 5 — only if applicable>"
   ],
-  "model_answer_outline": "<250-300 word model answer like a UPSC topper>"
+  "improvements": [
+    "<Specific improvement with contextual hint>",
+    "<Improvement 2 — include exact scheme/data/article to add>",
+    "<Improvement 3>",
+    "<Improvement 4 — only if applicable>",
+    "<Improvement 5 — only if applicable>"
+  ],
+  "missing_keywords": [
+    "<keyword 1>", "<keyword 2>", "<keyword 3>",
+    "<keyword 4>", "<keyword 5>", "<keyword 6>",
+    "<keyword 7>", "<keyword 8>"
+  ],
+  "current_affairs_gaps": [
+    { "date": "<Month Year>", "event": "<specific recent event that should have been cited>" },
+    { "date": "<Month Year>", "event": "<specific event 2>" },
+    { "date": "<Month Year>", "event": "<specific event 3>" }
+  ],
+  "model_answer_outline": "<A complete 250-300 word model answer written exactly like a UPSC topper. Must include: specific data points, constitutional provisions, government schemes with years, recent current affairs, multi-dimensional analysis, structured intro-body-conclusion. Make the student viscerally feel the gap.>"
 }`;
 
 // ── GEMINI CALLER ──
-async function callGemini(apiKey, base64Image, mimeType, question, totalMarks, subject) {
+async function callGemini(apiKey, modelName, base64Image, mimeType, question, totalMarks, subject) {
   const wordLimit = totalMarks <= 5  ? '75-100 words'
                   : totalMarks <= 10 ? '150 words'
                   : totalMarks <= 15 ? '250 words'
@@ -73,7 +89,8 @@ EXPECTED WORD LIMIT: ${wordLimit}
 The student's handwritten/typed answer is in the attached image.
 Evaluate strictly as a UPSC Mains examiner.
 Cap score at 7.5/10 no matter how good.
-Be brutally specific about every missing fact, scheme, article, or data point.`;
+Be brutally specific about every missing fact, scheme, article, or data point.
+Cite exact current affairs from 2024-2025 that are relevant and missing.`;
 
   const body = {
     contents: [{
@@ -84,11 +101,12 @@ Be brutally specific about every missing fact, scheme, article, or data point.`;
     }],
     generationConfig: {
       temperature: 0.25,
-      maxOutputTokens: 2800
+      maxOutputTokens: 2800,
+      topP: 0.85
     }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -96,11 +114,10 @@ Be brutally specific about every missing fact, scheme, article, or data point.`;
     body: JSON.stringify(body)
   });
 
-  // Read response as text first — safer than assuming JSON
+  // Always read as text first — safer than assuming JSON
   const responseText = await response.text();
 
   if (!response.ok) {
-    // Try to get a meaningful error message
     let errMsg = `Gemini API error ${response.status}`;
     try {
       const errJson = JSON.parse(responseText);
@@ -109,7 +126,7 @@ Be brutally specific about every missing fact, scheme, article, or data point.`;
     throw new Error(errMsg);
   }
 
-  // Parse the successful response
+  // Parse successful response
   let data;
   try {
     data = JSON.parse(responseText);
@@ -120,7 +137,7 @@ Be brutally specific about every missing fact, scheme, article, or data point.`;
   const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   if (!raw) throw new Error('Gemini returned empty response.');
 
-  // Extract JSON from response
+  // Extract JSON from response text
   const cleaned = raw.replace(/```json|```/g, '').trim();
   const start   = cleaned.indexOf('{');
   const end     = cleaned.lastIndexOf('}');
@@ -134,6 +151,7 @@ Be brutally specific about every missing fact, scheme, article, or data point.`;
 }
 
 // ── FALLBACK WATERFALL ──
+// Tries each key × each model = 9 total attempts before giving up
 async function evaluateWithFallback(base64Image, mimeType, question, totalMarks, subject) {
   const keys = [
     process.env.GEMINI_KEY_1,
@@ -145,23 +163,35 @@ async function evaluateWithFallback(base64Image, mimeType, question, totalMarks,
     throw new Error('Service not configured. Please contact support.');
   }
 
+  // Model priority — lite first (most free quota), then flash variants
+  const models = [
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-001',
+  ];
+
   let lastError = null;
 
-  for (let i = 0; i < keys.length; i++) {
-    try {
-      const result = await callGemini(
-        keys[i], base64Image, mimeType, question, totalMarks, subject
-      );
-      return result;
-    } catch (err) {
-      lastError = err;
-      const msg = err.message || '';
-      // Hard failures — don't try next key
-      if (msg.includes('403') || msg.includes('API key not valid')) {
-        throw new Error(`API key ${i + 1} is invalid. Please contact support.`);
+  for (const key of keys) {
+    for (const model of models) {
+      try {
+        const result = await callGemini(
+          key, model, base64Image, mimeType, question, totalMarks, subject
+        );
+        return result; // success — return immediately
+      } catch (err) {
+        lastError = err;
+        const msg = err.message || '';
+
+        // Invalid key — no point trying other models with this key
+        if (msg.includes('403') || msg.includes('API key not valid')) {
+          console.error(`Key invalid, skipping remaining models for this key.`);
+          break;
+        }
+
+        // Log and try next model/key
+        console.error(`Failed [${model}]: ${msg}`);
       }
-      // Soft failures — try next key
-      console.error(`Key ${i + 1} failed: ${msg}`);
     }
   }
 
@@ -176,7 +206,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  // CORS
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -189,10 +219,10 @@ export default async function handler(req, res) {
   try {
     const { base64Image, mimeType, question, totalMarks, subject } = req.body || {};
 
-    // Validate
-    if (!base64Image) return res.status(400).json({ error: 'No image data received.' });
+    // Validate all required fields
+    if (!base64Image)      return res.status(400).json({ error: 'No image data received.' });
     if (!question?.trim()) return res.status(400).json({ error: 'No question received.' });
-    if (!mimeType)    return res.status(400).json({ error: 'No file type received.' });
+    if (!mimeType)         return res.status(400).json({ error: 'No file type received.' });
 
     const marks = parseFloat(totalMarks) || 10;
     const subj  = subject || 'GS2';
