@@ -1,1 +1,395 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Evaluation Report — MainsEdge</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
 
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">Mains<span>Edge</span></a>
+    <div class="nav-right">
+      <span class="badge badge-free" id="tier-badge">FREE</span>
+      <button class="theme-toggle" title="Toggle theme" aria-label="Toggle theme"></button>
+    </div>
+  </nav>
+
+  <!-- PAGE -->
+  <div class="page">
+    <a href="evaluate.html" class="back-link">← Back to Evaluator</a>
+    <h1 class="page-title font-serif">Evaluation Report</h1>
+    <p class="page-sub" id="report-meta">Loading your results…</p>
+
+    <!-- ── SCORE CARD ── -->
+    <div class="card" id="score-card" style="margin-bottom:1rem; display:none;">
+
+      <div class="score-hero">
+        <div>
+          <div class="label">Score</div>
+          <div style="display:flex; align-items:baseline; gap:0.25rem;">
+            <span class="score-number font-serif" id="score-big">—</span>
+            <span class="score-denom">/10</span>
+          </div>
+          <div class="score-scaled" id="score-scaled"></div>
+          <span class="verdict-chip" id="verdict-chip"></span>
+        </div>
+        <div class="score-bar-wrap">
+          <div class="score-bar-label">Score range (UPSC max: 7.5)</div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill" id="score-bar-fill" style="width:0%;"></div>
+          </div>
+          <div class="score-bar-ticks">
+            <span>0</span>
+            <span style="color:var(--sage);">7.5 ★</span>
+            <span>10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reasoning -->
+      <div class="reasoning-box" id="reasoning-box">
+        <strong>Why this score</strong>
+        <span id="reasoning-text"></span>
+      </div>
+
+      <!-- Dimensions -->
+      <div class="label" style="margin-bottom:0.6rem;">Dimension Scores</div>
+      <div class="dims-grid" id="dims-grid"></div>
+      <div class="dims-lock-hint" id="dims-lock-hint" style="display:none;">
+        🔒 2 dimension details hidden ·
+        <a id="dims-upgrade-link">Upgrade to Pro</a>
+      </div>
+    </div>
+
+    <!-- ── MISTAKES ── -->
+    <div class="card" id="mistakes-card" style="margin-bottom:1rem; display:none;">
+      <div class="sec-header">
+        <span class="sec-dot" style="background:var(--rust);"></span>
+        <span class="sec-title">Mistakes Identified</span>
+      </div>
+      <div class="point-list" id="mistakes-list"></div>
+    </div>
+
+    <!-- ── IMPROVEMENTS ── -->
+    <div class="card" id="improvements-card" style="margin-bottom:1rem; display:none;">
+      <div class="sec-header">
+        <span class="sec-dot" style="background:var(--gold);"></span>
+        <span class="sec-title">Suggested Improvements</span>
+      </div>
+      <div class="point-list" id="improvements-list"></div>
+    </div>
+
+    <!-- ── KEYWORDS ── -->
+    <div class="card" id="keywords-card" style="margin-bottom:1rem; display:none;">
+      <div class="sec-header">
+        <span class="sec-dot" style="background:var(--gold);"></span>
+        <span class="sec-title">Keywords &amp; Jargon You Missed</span>
+      </div>
+      <div class="kw-wrap" id="keywords-wrap"></div>
+    </div>
+
+    <!-- ── CURRENT AFFAIRS ── -->
+    <div class="card" id="ca-card" style="margin-bottom:1rem; display:none;">
+      <div class="sec-header">
+        <span class="sec-dot" style="background:var(--pro-accent);"></span>
+        <span class="sec-title">Current Affairs Gaps</span>
+        <span class="sec-lock" id="ca-lock-label"></span>
+      </div>
+      <div id="ca-section">
+        <div id="ca-list"></div>
+      </div>
+    </div>
+
+    <!-- ── MODEL ANSWER ── -->
+    <div class="card" id="model-card" style="margin-bottom:1rem; display:none;">
+      <div class="sec-header">
+        <span class="sec-dot" style="background:var(--sage);"></span>
+        <span class="sec-title">Model Answer Outline</span>
+        <span class="sec-lock" id="model-lock-label"></span>
+      </div>
+      <div id="model-section">
+        <div class="model-answer" id="model-answer-text"></div>
+      </div>
+    </div>
+
+    <!-- ── UPGRADE BANNER (free users) ── -->
+    <div class="upgrade-banner" id="upgrade-banner" style="display:none;">
+      <h3>Take the Topper's Edge</h3>
+      <p>
+        You're seeing partial feedback. Pro unlocks the complete picture —
+        current affairs gaps, full model answers, unlimited evaluations,
+        and your personal progress workspace.
+      </p>
+      <div class="upgrade-feats">
+        <span class="upgrade-feat">✓ Unlimited evaluations</span>
+        <span class="upgrade-feat">✓ Full model answers</span>
+        <span class="upgrade-feat">✓ Current affairs gaps</span>
+        <span class="upgrade-feat">✓ Personal workspace</span>
+        <span class="upgrade-feat">✓ All dimension notes</span>
+        <span class="upgrade-feat">✓ GS1–GS4 + Essay</span>
+        <span class="upgrade-feat">✓ Progress tracking</span>
+        <span class="upgrade-feat">✓ PDF booklet upload</span>
+      </div>
+      <button class="btn btn-gold btn-lg" id="upgrade-btn-banner">
+        Upgrade to Pro — ₹149/month
+      </button>
+    </div>
+
+    <!-- ── NEW EVALUATION BUTTON ── -->
+    <button class="btn btn-ghost btn-full" id="new-eval-btn"
+      style="margin-top:1rem; display:none;">
+      ← Evaluate Another Answer
+    </button>
+
+    <!-- ── NO RESULT STATE ── -->
+    <div id="no-result-state" style="text-align:center; padding:4rem 1rem;">
+      <div style="font-size:2.5rem; margin-bottom:1rem;">📄</div>
+      <div style="font-family:'Instrument Serif',serif; font-size:1.3rem; margin-bottom:0.5rem;">
+        No evaluation found
+      </div>
+      <p style="color:var(--ink-muted); font-size:0.88rem; margin-bottom:1.5rem;">
+        Submit an answer from the evaluator to see your report here.
+      </p>
+      <a href="evaluate.html" class="btn btn-primary">Go to Evaluator →</a>
+    </div>
+
+  </div>
+
+  <!-- ── UPGRADE MODAL ── -->
+  <div class="modal-overlay" id="upgrade-modal" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-icon">⚡</div>
+      <div class="modal-title font-serif">MainsEdge Pro — Coming Soon</div>
+      <div class="modal-body">
+        Pro tier is under development. Join the waitlist and get
+        <strong>3 months free</strong> when we launch.
+        You'll be the first to know.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-gold" id="modal-waitlist-btn">Join Waitlist</button>
+        <button class="btn btn-ghost" id="modal-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="js/theme.js"></script>
+  <script src="js/tier.js"></script>
+  <script src="js/evaluator.js"></script>
+  <script>
+    // ── CONSTANTS ──
+    const IS_PRO        = false; // flip to true when Pro launches
+    const RESULT_KEY    = 'mainsedge_last_result';
+    const RESULT_META_KEY = 'mainsedge_last_meta';
+
+    // ── LOAD RESULT FROM STORAGE ──
+    let result = null;
+    let meta   = null;
+    try {
+      const raw = sessionStorage.getItem(RESULT_KEY);
+      const rawMeta = sessionStorage.getItem(RESULT_META_KEY);
+      if (raw) result = JSON.parse(raw);
+      if (rawMeta) meta = JSON.parse(rawMeta);
+    } catch {}
+
+    // ── HELPERS ──
+    function show(id)  { const el = document.getElementById(id); if (el) el.style.display = ''; }
+    function hide(id)  { const el = document.getElementById(id); if (el) el.style.display = 'none'; }
+    function el(id)    { return document.getElementById(id); }
+    function setText(id, text) { const e = el(id); if (e) e.textContent = text; }
+    function setHTML(id, html) { const e = el(id); if (e) e.innerHTML  = html; }
+
+    function showUpgradeModal() {
+      el('upgrade-modal').style.display = 'flex';
+    }
+    function hideUpgradeModal() {
+      el('upgrade-modal').style.display = 'none';
+    }
+
+    // ── RENDER DIMENSIONS ──
+    function renderDimensions(dimensions) {
+      const dims = [
+        { key: 'content_quality',  label: 'Content Quality' },
+        { key: 'current_affairs',  label: 'Current Affairs' },
+        { key: 'structure',        label: 'Structure' },
+        { key: 'analytical_depth', label: 'Analytical Depth' },
+        { key: 'presentation',     label: 'Presentation' },
+      ];
+
+      const grid = el('dims-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      dims.forEach(({ key, label }, idx) => {
+        const d = dimensions?.[key];
+        if (!d) return;
+        const blurred = !IS_PRO && idx >= 3;
+        const color   = Evaluator.scoreColor(d.score);
+
+        const card = document.createElement('div');
+        card.className = 'dim-card' + (blurred ? ' blurred' : '');
+        card.innerHTML = `
+          <div class="dim-name">${label}</div>
+          <div class="dim-score font-serif" style="color:${color};">
+            ${d.score}<sub>/10</sub>
+          </div>
+          <div class="dim-bar">
+            <div class="dim-bar-fill" style="width:${d.score * 10}%; background:${color};"></div>
+          </div>
+          ${IS_PRO ? `<div class="dim-note">${d.note}</div>` : ''}
+        `;
+        grid.appendChild(card);
+      });
+
+      if (!IS_PRO) {
+        show('dims-lock-hint');
+        el('dims-upgrade-link')?.addEventListener('click', showUpgradeModal);
+      }
+    }
+
+    // ── RENDER POINT LIST ──
+    function renderPointList(containerId, items, type) {
+      const container = el(containerId);
+      if (!container || !items?.length) return;
+      const markerMap = { mistake: '✗', improvement: '↑', good: '✓' };
+      const classMap  = { mistake: 'red', improvement: 'gold', good: 'green' };
+      container.innerHTML = items.map(item => `
+        <div class="point-item ${type}">
+          <span class="point-marker ${classMap[type]}">${markerMap[type]}</span>
+          <span>${item}</span>
+        </div>
+      `).join('');
+    }
+
+    // ── RENDER KEYWORDS ──
+    function renderKeywords(keywords) {
+      const wrap = el('keywords-wrap');
+      if (!wrap || !keywords?.length) return;
+      wrap.innerHTML = keywords.map(kw =>
+        `<span class="kw-chip">${kw}</span>`
+      ).join('');
+    }
+
+    // ── RENDER CURRENT AFFAIRS ──
+    function renderCurrentAffairs(gaps) {
+      const list = el('ca-list');
+      if (!list || !gaps?.length) return;
+      list.innerHTML = gaps.map(ca => `
+        <div class="ca-item">
+          <div class="ca-date">${ca.date}</div>
+          <div>${ca.event}</div>
+        </div>
+      `).join('');
+
+      if (!IS_PRO) {
+        setText('ca-lock-label', '🔒 Pro');
+        Tier.applyLock('ca-section', true, showUpgradeModal);
+      }
+    }
+
+    // ── RENDER MODEL ANSWER ──
+    function renderModelAnswer(outline) {
+      const textEl = el('model-answer-text');
+      if (!textEl || !outline) return;
+      textEl.textContent = outline;
+
+      if (!IS_PRO) {
+        setText('model-lock-label', '🔒 Pro');
+        Tier.applyLock('model-section', true, showUpgradeModal);
+      }
+    }
+
+    // ── MAIN RENDER ──
+    function renderResult(result, meta) {
+      hide('no-result-state');
+
+      const { score, scaled_score, verdict, score_reasoning,
+              dimensions, mistakes, improvements,
+              missing_keywords, current_affairs_gaps,
+              model_answer_outline } = result;
+
+      // Meta subtitle
+      if (meta) {
+        setText('report-meta',
+          `${meta.subject} · ${meta.marks} marks · ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}`
+        );
+      }
+
+      // Score
+      const color = Evaluator.scoreColor(score);
+      const scoreBig = el('score-big');
+      if (scoreBig) { scoreBig.textContent = score; scoreBig.style.color = color; }
+
+      if (scaled_score && meta?.marks !== 10) {
+        setText('score-scaled', `≈ ${scaled_score} / ${meta?.marks} marks`);
+      }
+
+      const chip = el('verdict-chip');
+      if (chip) {
+        chip.textContent = verdict;
+        chip.className = `verdict-chip ${Evaluator.verdictClass(verdict)}`;
+      }
+
+      // Score bar
+      const fill = el('score-bar-fill');
+      if (fill) {
+        setTimeout(() => {
+          fill.style.width  = `${(score / 10) * 100}%`;
+          fill.style.background = color;
+        }, 100);
+      }
+
+      // Reasoning
+      setText('reasoning-text', score_reasoning);
+
+      // Dimensions
+      renderDimensions(dimensions);
+
+      // Mistakes
+      renderPointList('mistakes-list', mistakes, 'mistake');
+
+      // Improvements
+      renderPointList('improvements-list', improvements, 'improvement');
+
+      // Keywords
+      renderKeywords(missing_keywords);
+
+      // Current Affairs
+      renderCurrentAffairs(current_affairs_gaps);
+
+      // Model Answer
+      renderModelAnswer(model_answer_outline);
+
+      // Show all cards
+      ['score-card','mistakes-card','improvements-card',
+       'keywords-card','ca-card','model-card','new-eval-btn'].forEach(show);
+
+      // Show upgrade banner for free users
+      if (!IS_PRO) show('upgrade-banner');
+    }
+
+    // ── INIT ──
+    if (result) {
+      renderResult(result, meta);
+    } else {
+      show('no-result-state');
+    }
+
+    // ── BUTTON EVENTS ──
+    el('new-eval-btn')?.addEventListener('click', () => {
+      window.location.href = 'evaluate.html';
+    });
+
+    el('upgrade-btn-banner')?.addEventListener('click', showUpgradeModal);
+    el('modal-close-btn')?.addEventListener('click', hideUpgradeModal);
+    el('modal-waitlist-btn')?.addEventListener('click', hideUpgradeModal);
+
+    el('upgrade-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) hideUpgradeModal();
+    });
+  </script>
+</body>
+</html>
