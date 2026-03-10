@@ -29,9 +29,6 @@
     <!-- USAGE BAR -->
     <div id="usage-bar-wrap"></div>
 
-    <!-- API KEY -->
-    <div id="apikey-wrap"></div>
-
     <!-- ── FORM CARD ── -->
     <div class="card" id="form-card">
 
@@ -75,7 +72,7 @@
       <div style="margin-bottom:1.3rem;">
         <label class="label">Your Answer</label>
 
-        <!-- Drop zone (shown when no file) -->
+        <!-- Drop zone -->
         <div class="upload-zone" id="upload-zone">
           <input
             type="file"
@@ -88,7 +85,7 @@
           <div class="upload-sub">JPG · PNG · PDF &nbsp;·&nbsp; Max 10 MB</div>
         </div>
 
-        <!-- Preview (shown after file selected) -->
+        <!-- Preview -->
         <div class="upload-preview" id="upload-preview" style="display:none;">
           <span id="preview-icon" style="font-size:1.5rem;">🖼️</span>
           <div class="upload-preview-info">
@@ -107,12 +104,13 @@
         Evaluate My Answer →
       </button>
 
-      <p style="font-size:0.75rem; color:var(--ink-muted); text-align:center; margin-top:0.8rem; line-height:1.5;">
-        Your file is sent directly to Google Gemini and never stored on our servers.
+      <p style="font-size:0.75rem; color:var(--ink-muted);
+        text-align:center; margin-top:0.8rem; line-height:1.5;">
+        Your file is sent directly to our secure server and never stored.
       </p>
     </div>
 
-    <!-- ── LOADING CARD (hidden until submit) ── -->
+    <!-- ── LOADING CARD ── -->
     <div class="card loading-card" id="loading-card" style="display:none;">
       <div class="spinner"></div>
       <div class="loading-title">Evaluating your answer…</div>
@@ -169,7 +167,6 @@
 
     // ── INIT UI ──
     Tier.renderUsageBar();
-    Tier.renderApiKeySection();
     Tier.updateSubmitBtn();
 
     // ── HELPERS ──
@@ -190,9 +187,9 @@
       selectedFile = file;
       hide('upload-zone');
       show('upload-preview');
-      el('preview-icon').textContent  = file.type.includes('pdf') ? '📑' : '🖼️';
-      el('preview-name').textContent  = file.name;
-      el('preview-size').textContent  = (file.size / 1024).toFixed(0) + ' KB';
+      el('preview-icon').textContent = file.type.includes('pdf') ? '📑' : '🖼️';
+      el('preview-name').textContent = file.name;
+      el('preview-size').textContent = (file.size / 1024).toFixed(0) + ' KB';
       hideError();
     }
 
@@ -211,7 +208,7 @@
 
     // Drag and drop
     const zone = el('upload-zone');
-    zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone?.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
     zone?.addEventListener('dragleave', () => zone.classList.remove('dragover'));
     zone?.addEventListener('drop', e => {
       e.preventDefault();
@@ -239,6 +236,7 @@
       container.innerHTML = '';
       let current = 0;
 
+      // Show first step immediately
       function addStep(i) {
         const div = document.createElement('div');
         div.className = 'loading-step' + (i === current ? ' active' : '');
@@ -247,18 +245,18 @@
       }
 
       addStep(0);
+
       stepInterval = setInterval(() => {
-        const steps = container.querySelectorAll('.loading-step');
-        steps.forEach(s => s.classList.remove('active'));
         current = Math.min(current + 1, STEPS.length - 1);
-        if (current < STEPS.length && steps[current - 1]) {
-          // Mark previous as done, add new step
-        }
+        // Mark all previous as inactive
+        container.querySelectorAll('.loading-step')
+          .forEach(s => s.classList.remove('active'));
+        // Add new step
         if (current < STEPS.length) {
           addStep(current);
-          container.querySelectorAll('.loading-step').forEach((s, i) => {
-            s.classList.toggle('active', i === current);
-          });
+          // Mark last one active
+          const all = container.querySelectorAll('.loading-step');
+          all[all.length - 1].classList.add('active');
         }
       }, 900);
     }
@@ -273,18 +271,25 @@
     el('submit-btn')?.addEventListener('click', async () => {
       hideError();
 
-      // Check daily limit
-      if (!Tier.canEvaluate()) { showLimitModal(); return; }
+      // Check daily limit first
+      if (!Tier.canEvaluate()) {
+        showLimitModal();
+        return;
+      }
 
       const question = el('question-input')?.value?.trim();
-      const marks    = parseFloat(el('marks-select')?.value || '10');
-      const subject  = el('subject-select')?.value || 'GS2';
-      const apiKey   = Tier.getApiKey();
+      const marks    = parseFloat(el('marks-select')?.value  || '10');
+      const subject  = el('subject-select')?.value           || 'GS2';
 
-      // Client-side validation before API call
-      if (!question) { showError('Please enter the question before evaluating.'); return; }
-      if (!selectedFile) { showError('Please upload your answer (image or PDF).'); return; }
-      if (!apiKey) { showError('Please enter and save your Gemini API key first.'); return; }
+      // Basic client-side validation
+      if (!question) {
+        showError('Please enter the question before evaluating.');
+        return;
+      }
+      if (!selectedFile) {
+        showError('Please upload your answer (image or PDF).');
+        return;
+      }
 
       showLoading();
 
@@ -294,21 +299,22 @@
           totalMarks: marks,
           subject,
           file:       selectedFile,
-          apiKey,
-          onStep:     (i, msg) => {} // steps handled by interval above
+          onStep:     (i, msg) => {}
         });
 
         // Save to sessionStorage → results.html reads from here
-        sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
+        sessionStorage.setItem(RESULT_KEY,      JSON.stringify(result));
         sessionStorage.setItem(RESULT_META_KEY, JSON.stringify({
-          question, marks, subject,
+          question,
+          marks,
+          subject,
           date: new Date().toISOString()
         }));
 
-        // Count usage
+        // Increment usage count
         Tier.incrementUsage();
 
-        // Navigate to results
+        // Go to results page
         window.location.href = 'results.html';
 
       } catch (err) {
@@ -318,13 +324,20 @@
     });
 
     // ── MODAL EVENTS ──
-    el('limit-upgrade-btn')?.addEventListener('click', () => { hideLimitModal(); showUpgradeModal(); });
-    el('limit-close-btn')?.addEventListener('click',   hideLimitModal);
+    el('limit-upgrade-btn')?.addEventListener('click', () => {
+      hideLimitModal();
+      showUpgradeModal();
+    });
+    el('limit-close-btn')?.addEventListener('click',    hideLimitModal);
     el('upgrade-waitlist-btn')?.addEventListener('click', hideUpgradeModal);
-    el('upgrade-close-btn')?.addEventListener('click',   hideUpgradeModal);
+    el('upgrade-close-btn')?.addEventListener('click',    hideUpgradeModal);
 
-    el('limit-modal')?.addEventListener('click',   function(e) { if (e.target === this) hideLimitModal(); });
-    el('upgrade-modal')?.addEventListener('click', function(e) { if (e.target === this) hideUpgradeModal(); });
+    el('limit-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) hideLimitModal();
+    });
+    el('upgrade-modal')?.addEventListener('click', function(e) {
+      if (e.target === this) hideUpgradeModal();
+    });
 
   </script>
 </body>
