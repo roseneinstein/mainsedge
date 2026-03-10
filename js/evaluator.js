@@ -2,14 +2,13 @@
 
 const Evaluator = (() => {
 
-  // ── YOUR GEMINI API KEYS (AI Studio keys) ──
+  // ── YOUR GEMINI API KEYS ──
   const KEYS = [
     'AIzaSyDy_Y6550LlqYX0oqMotVTT57PwiqghYeE',
     'AIzaSyA4SENFtzfFuD-hPxd-rLZ_P3IGvgx3LZc',
     'AIzaSyDEvwsAB0760NHb6l6ob1JeTNGxVJHU1YY',
   ];
 
-  // ── MODELS FROM YOUR VERIFIED LIST ──
   const MODELS = [
     'gemini-2.0-flash-lite',
     'gemini-2.0-flash-001',
@@ -20,13 +19,13 @@ const Evaluator = (() => {
 
 SCORING RULES — NON-NEGOTIABLE:
 1. MAXIMUM score you can ever give is 7.5/10. UPSC never awards full marks. Ever.
-2. A generic answer with no specific facts, data, jargon, or current affairs = 2–3/10 MAXIMUM.
+2. A generic answer with no specific facts, data, jargon, or current affairs = 2-3/10 MAXIMUM.
 3. Every 0.5 mark increase must be EARNED by:
    — Specific facts, statistics, survey data, index rankings
    — Committee/Commission names (e.g. Narasimham, Kelkar, ARC)
    — Constitutional Articles, Schedules, Amendments
    — Government schemes with launch year (e.g. PM-KISAN 2019, MGNREGS 2005)
-   — Recent current affairs from last 6–12 months with dates
+   — Recent current affairs from last 6-12 months with dates
    — Structured format: intro to body multi-dimensional to conclusion
    — Creative elements: tables, flowcharts, diagrams described in text
    — Multi-dimensional analysis: social, economic, political, environmental, ethical
@@ -113,7 +112,7 @@ You MUST respond ONLY in this exact JSON format. No markdown. No preamble. No ex
     });
   }
 
-  // ── CALL GEMINI ──
+  // ── CALL SINGLE GEMINI REQUEST ──
   async function callGemini(apiKey, modelName, base64Image, mimeType, question, totalMarks, subject) {
     const wordLimit = totalMarks <= 5  ? '75-100 words'
                     : totalMarks <= 10 ? '150 words'
@@ -187,7 +186,9 @@ Cite exact current affairs from 2024-2025 that are relevant and missing.`;
     }
   }
 
-  // ── FALLBACK WATERFALL ──
+  // ── SMART FALLBACK WITH RETRY DELAY ──
+  // Only tries ONE request at a time with delay between attempts
+  // This respects the 2 requests/minute free tier limit
   async function callWithFallback(base64Image, mimeType, question, totalMarks, subject) {
     const validKeys = KEYS.filter(k => k && !k.startsWith('PASTE'));
 
@@ -195,35 +196,87 @@ Cite exact current affairs from 2024-2025 that are relevant and missing.`;
       throw new Error('No API keys configured.');
     }
 
-    let lastError = null;
-    const errors  = [];
+    // Try key 1 + first model first — most likely to succeed
+    // If 429, wait 35 seconds then try key 2
+    // If 429 again, wait 35 seconds then try key 3
+    // This way we never spam multiple requests simultaneously
 
-    for (const key of validKeys) {
-      for (const model of MODELS) {
+    for (let keyIndex = 0; keyIndex < validKeys.length; keyIndex++) {
+      const key = validKeys[keyIndex];
+
+      for (let modelIndex = 0; modelIndex < MODELS.length; modelIndex++) {
+        const model = MODELS[modelIndex];
+
         try {
           const result = await callGemini(
             key, model, base64Image, mimeType, question, totalMarks, subject
           );
-          return result; // success
-        } catch (err) {
-          lastError = err;
-          const msg = err.message || '';
-          errors.push(`[${model}]: ${msg}`);
+          return result; // success — done
 
-          // Invalid key — skip remaining models for this key
+        } catch (err) {
+          const msg = err.message || '';
+
+          // Hard fail — invalid key, stop trying this key
           if (msg.includes('403') || msg.includes('API key not valid')) {
-            break;
+            console.warn(`[MainsEdge] Key ${keyIndex + 1} invalid, skipping.`);
+            break; // move to next key
           }
-          // Continue to next model
+
+          // Model not found — try next model immediately, no wait needed
+          if (msg.includes('not found') || msg.includes('not supported')) {
+            console.warn(`[MainsEdge] Model ${model} not available, trying next.`);
+            continue; // try next model
+          }
+
+          // Rate limit (429) — wait 35 seconds then try next key
+          if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            console.warn(`[MainsEdge] Rate limit on key ${keyIndex + 1}. Waiting 35s...`);
+
+            // Update loading message to tell user to wait
+            const loadingTitle = document.querySelector('.loading-title');
+            if (loadingTitle) {
+              loadingTitle.textContent = 'Rate limit hit — retrying in 35 seconds...';
+            }
+
+            await delay(35000); // wait 35 seconds
+
+            // Reset loading message
+            if (loadingTitle) {
+              loadingTitle.textContent = 'Evaluating your answer...';
+            }
+
+            break; // move to next key after waiting
+          }
+
+          // Any other error — try next model
+          console.warn(`[MainsEdge] ${model} failed: ${msg}`);
         }
       }
     }
 
-    // Show the first meaningful error — not the last one
-    const meaningful = errors.find(e =>
-      !e.includes('not found') && !e.includes('not supported')
-    );
-    throw new Error(meaningful || lastError?.message || 'Evaluation failed. Please try again.');
+    // All keys exhausted — final attempt with first key after one more wait
+    console.warn('[MainsEdge] All keys tried. Final attempt after 35s...');
+
+    const loadingTitle = document.querySelector('.loading-title');
+    if (loadingTitle) {
+      loadingTitle.textContent = 'High traffic — final retry in 35 seconds...';
+    }
+
+    await delay(35000);
+
+    if (loadingTitle) {
+      loadingTitle.textContent = 'Evaluating your answer...';
+    }
+
+    try {
+      return await callGemini(
+        validKeys[0], MODELS[0], base64Image, mimeType, question, totalMarks, subject
+      );
+    } catch (err) {
+      throw new Error(
+        'Our servers are under high load right now. Please wait 1 minute and try again.'
+      );
+    }
   }
 
   // ── MAIN EVALUATE ──
