@@ -1,1 +1,331 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Evaluate Answer — MainsEdge</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
 
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">Mains<span>Edge</span></a>
+    <div class="nav-right">
+      <span class="badge badge-free" id="tier-badge">FREE</span>
+      <button class="theme-toggle" title="Toggle theme" aria-label="Toggle theme"></button>
+    </div>
+  </nav>
+
+  <!-- PAGE -->
+  <div class="page">
+    <a href="index.html" class="back-link">← Home</a>
+    <h1 class="page-title font-serif">Evaluate Your Answer</h1>
+    <p class="page-sub">
+      Upload your handwritten or typed answer and get UPSC-calibrated
+      feedback in under 30 seconds.
+    </p>
+
+    <!-- USAGE BAR -->
+    <div id="usage-bar-wrap"></div>
+
+    <!-- API KEY -->
+    <div id="apikey-wrap"></div>
+
+    <!-- ── FORM CARD ── -->
+    <div class="card" id="form-card">
+
+      <!-- Question -->
+      <div style="margin-bottom:1.2rem;">
+        <label class="label" for="question-input">Question</label>
+        <textarea
+          class="textarea"
+          id="question-input"
+          placeholder="Paste the exact UPSC question here.&#10;e.g. 'Discuss the role of civil society in strengthening democracy in India. (10 marks)'"
+          rows="4"
+        ></textarea>
+      </div>
+
+      <!-- Marks + Subject Row -->
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.3rem;">
+        <div style="flex:1; min-width:130px;">
+          <label class="label" for="marks-select">Total Marks</label>
+          <select class="select" id="marks-select">
+            <option value="5">5 marks</option>
+            <option value="10" selected>10 marks</option>
+            <option value="12.5">12.5 marks</option>
+            <option value="15">15 marks</option>
+            <option value="20">20 marks</option>
+            <option value="25">25 marks</option>
+          </select>
+        </div>
+        <div style="flex:2; min-width:160px;">
+          <label class="label" for="subject-select">Subject / Paper</label>
+          <select class="select" id="subject-select">
+            <option value="GS1">GS1 — History, Geography, Society</option>
+            <option value="GS2" selected>GS2 — Polity, Governance, IR</option>
+            <option value="GS3">GS3 — Economy, Environment, Tech</option>
+            <option value="GS4">GS4 — Ethics, Integrity, Aptitude</option>
+            <option value="Essay">Essay</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div style="margin-bottom:1.3rem;">
+        <label class="label">Your Answer</label>
+
+        <!-- Drop zone (shown when no file) -->
+        <div class="upload-zone" id="upload-zone">
+          <input
+            type="file"
+            id="file-input"
+            accept="image/*,.pdf"
+            aria-label="Upload your answer"
+          />
+          <div class="upload-icon">📄</div>
+          <div class="upload-title">Upload handwritten or typed answer</div>
+          <div class="upload-sub">JPG · PNG · PDF &nbsp;·&nbsp; Max 10 MB</div>
+        </div>
+
+        <!-- Preview (shown after file selected) -->
+        <div class="upload-preview" id="upload-preview" style="display:none;">
+          <span id="preview-icon" style="font-size:1.5rem;">🖼️</span>
+          <div class="upload-preview-info">
+            <div class="upload-preview-name" id="preview-name"></div>
+            <div class="upload-preview-size" id="preview-size"></div>
+          </div>
+          <button class="remove-btn" id="remove-file-btn" aria-label="Remove file">✕</button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-box" id="error-box" style="display:none;"></div>
+
+      <!-- Submit -->
+      <button class="btn btn-primary btn-full btn-lg" id="submit-btn">
+        Evaluate My Answer →
+      </button>
+
+      <p style="font-size:0.75rem; color:var(--ink-muted); text-align:center; margin-top:0.8rem; line-height:1.5;">
+        Your file is sent directly to Google Gemini and never stored on our servers.
+      </p>
+    </div>
+
+    <!-- ── LOADING CARD (hidden until submit) ── -->
+    <div class="card loading-card" id="loading-card" style="display:none;">
+      <div class="spinner"></div>
+      <div class="loading-title">Evaluating your answer…</div>
+      <div id="loading-steps"></div>
+    </div>
+
+  </div>
+
+  <!-- ── DAILY LIMIT MODAL ── -->
+  <div class="modal-overlay" id="limit-modal" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-icon">⏱️</div>
+      <div class="modal-title font-serif">Daily Limit Reached</div>
+      <div class="modal-body">
+        You've used all <strong>5 free evaluations</strong> for today.
+        Upgrade to Pro for unlimited evaluations, full model answers,
+        and current affairs analysis.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-gold" id="limit-upgrade-btn">Upgrade to Pro</button>
+        <button class="btn btn-ghost" id="limit-close-btn">Come back tomorrow</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── UPGRADE MODAL ── -->
+  <div class="modal-overlay" id="upgrade-modal" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-icon">⚡</div>
+      <div class="modal-title font-serif">MainsEdge Pro — Coming Soon</div>
+      <div class="modal-body">
+        Pro tier is under development. Join the waitlist and get
+        <strong>3 months free</strong> when we launch.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-gold" id="upgrade-waitlist-btn">Join Waitlist</button>
+        <button class="btn btn-ghost" id="upgrade-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="js/theme.js"></script>
+  <script src="js/tier.js"></script>
+  <script src="js/evaluator.js"></script>
+  <script>
+
+    // ── CONSTANTS ──
+    const RESULT_KEY      = 'mainsedge_last_result';
+    const RESULT_META_KEY = 'mainsedge_last_meta';
+
+    // ── STATE ──
+    let selectedFile = null;
+
+    // ── INIT UI ──
+    Tier.renderUsageBar();
+    Tier.renderApiKeySection();
+    Tier.updateSubmitBtn();
+
+    // ── HELPERS ──
+    function el(id)         { return document.getElementById(id); }
+    function show(id)       { const e = el(id); if (e) e.style.display = ''; }
+    function hide(id)       { const e = el(id); if (e) e.style.display = 'none'; }
+    function showError(msg) { const e = el('error-box'); if (e) { e.textContent = msg; e.style.display = ''; } }
+    function hideError()    { hide('error-box'); }
+
+    function showUpgradeModal() { el('upgrade-modal').style.display = 'flex'; }
+    function hideUpgradeModal() { el('upgrade-modal').style.display = 'none'; }
+    function showLimitModal()   { el('limit-modal').style.display   = 'flex'; }
+    function hideLimitModal()   { el('limit-modal').style.display   = 'none'; }
+
+    // ── FILE HANDLING ──
+    function setFile(file) {
+      if (!file) return;
+      selectedFile = file;
+      hide('upload-zone');
+      show('upload-preview');
+      el('preview-icon').textContent  = file.type.includes('pdf') ? '📑' : '🖼️';
+      el('preview-name').textContent  = file.name;
+      el('preview-size').textContent  = (file.size / 1024).toFixed(0) + ' KB';
+      hideError();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      show('upload-zone');
+      hide('upload-preview');
+      el('file-input').value = '';
+    }
+
+    el('file-input')?.addEventListener('change', e => {
+      if (e.target.files?.[0]) setFile(e.target.files[0]);
+    });
+
+    el('remove-file-btn')?.addEventListener('click', clearFile);
+
+    // Drag and drop
+    const zone = el('upload-zone');
+    zone?.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone?.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone?.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const f = e.dataTransfer.files?.[0];
+      if (f) setFile(f);
+    });
+
+    // ── LOADING STEPS ──
+    let stepInterval = null;
+    const STEPS = [
+      'Reading document…',
+      'Extracting handwritten content…',
+      'Cross-referencing UPSC rubric…',
+      'Checking current affairs relevance…',
+      'Computing dimension scores…',
+      'Generating detailed feedback…'
+    ];
+
+    function showLoading() {
+      hide('form-card');
+      show('loading-card');
+      const container = el('loading-steps');
+      if (!container) return;
+      container.innerHTML = '';
+      let current = 0;
+
+      function addStep(i) {
+        const div = document.createElement('div');
+        div.className = 'loading-step' + (i === current ? ' active' : '');
+        div.textContent = STEPS[i];
+        container.appendChild(div);
+      }
+
+      addStep(0);
+      stepInterval = setInterval(() => {
+        const steps = container.querySelectorAll('.loading-step');
+        steps.forEach(s => s.classList.remove('active'));
+        current = Math.min(current + 1, STEPS.length - 1);
+        if (current < STEPS.length && steps[current - 1]) {
+          // Mark previous as done, add new step
+        }
+        if (current < STEPS.length) {
+          addStep(current);
+          container.querySelectorAll('.loading-step').forEach((s, i) => {
+            s.classList.toggle('active', i === current);
+          });
+        }
+      }, 900);
+    }
+
+    function hideLoading() {
+      clearInterval(stepInterval);
+      hide('loading-card');
+      show('form-card');
+    }
+
+    // ── SUBMIT ──
+    el('submit-btn')?.addEventListener('click', async () => {
+      hideError();
+
+      // Check daily limit
+      if (!Tier.canEvaluate()) { showLimitModal(); return; }
+
+      const question = el('question-input')?.value?.trim();
+      const marks    = parseFloat(el('marks-select')?.value || '10');
+      const subject  = el('subject-select')?.value || 'GS2';
+      const apiKey   = Tier.getApiKey();
+
+      // Client-side validation before API call
+      if (!question) { showError('Please enter the question before evaluating.'); return; }
+      if (!selectedFile) { showError('Please upload your answer (image or PDF).'); return; }
+      if (!apiKey) { showError('Please enter and save your Gemini API key first.'); return; }
+
+      showLoading();
+
+      try {
+        const result = await Evaluator.evaluate({
+          question,
+          totalMarks: marks,
+          subject,
+          file:       selectedFile,
+          apiKey,
+          onStep:     (i, msg) => {} // steps handled by interval above
+        });
+
+        // Save to sessionStorage → results.html reads from here
+        sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
+        sessionStorage.setItem(RESULT_META_KEY, JSON.stringify({
+          question, marks, subject,
+          date: new Date().toISOString()
+        }));
+
+        // Count usage
+        Tier.incrementUsage();
+
+        // Navigate to results
+        window.location.href = 'results.html';
+
+      } catch (err) {
+        hideLoading();
+        showError(err.message || 'Something went wrong. Please try again.');
+      }
+    });
+
+    // ── MODAL EVENTS ──
+    el('limit-upgrade-btn')?.addEventListener('click', () => { hideLimitModal(); showUpgradeModal(); });
+    el('limit-close-btn')?.addEventListener('click',   hideLimitModal);
+    el('upgrade-waitlist-btn')?.addEventListener('click', hideUpgradeModal);
+    el('upgrade-close-btn')?.addEventListener('click',   hideUpgradeModal);
+
+    el('limit-modal')?.addEventListener('click',   function(e) { if (e.target === this) hideLimitModal(); });
+    el('upgrade-modal')?.addEventListener('click', function(e) { if (e.target === this) hideUpgradeModal(); });
+
+  </script>
+</body>
+</html>
